@@ -1,0 +1,407 @@
+#!/bin/bash
+
+# Android Build Bot Script
+# Version: 2.1
+
+# By: Shane Faulkner
+# http://shanefaulkner.com
+# You are free to modify and distribute this code,
+# so long as you keep my name and URL in it.
+# Lots of thanks go out to Ihtfp69, erishasnobattery, 
+# Adrynalyne and ThatDudeButch!
+
+#----------------------Settings Reset---------------------#
+
+PRODUCT=()
+LNCHCMD=()
+BUILDNM=()
+OUTPTNM=()
+RSTORAG=()
+BSTORAG=()
+GABRNCH=()
+WORK=$(pwd)
+#---------------------- Paths -----------------------------#
+
+# your build source code directory path
+SAUCE=$WORK"roms/source"
+
+# your gapps source code directory path
+GASAUCE=$WORK"roms/source/bamf_gapps"
+
+# rom storage locations
+RSTORAG[0]="/home/shauder/Dropbox/TeamBAMF/Dev/ROMS"
+RSTORAG[1]="/mnt/windows/Users/Shane/Dropbox/TeamBAMF/Dev/ROMS"
+
+# gapps storage locations
+GSTORAGE[0]="/home/shauder/Dropbox/TeamBAMF/Dev/Gapps"
+GSTORAGE[1]="/mnt/windows/Users/Shane/Dropbox/TeamBAMF/Dev/Gapps"
+
+#--------------------Default Settings----------------------#
+
+# version number, date or anything you want appended 
+VERSION="v3.1-beta5"
+GAPPSDATE=`date +"%m-%d"`
+
+# gapps
+BALLGA="n"
+BPJBGA="n"
+BTJBGA="n"
+
+# devices
+BALLROMS="n"
+BTORO="n"
+BMAGURO="n"
+BTOROPLUS="n"
+BGROUPER="n"
+BMAKO="n"
+BMANTA="n"
+
+# configs
+BUILDROMS="y"
+BUILDGAPPS="y"
+SYNC="n"
+CLEAN="n"
+CLOBBER="n"
+MOVE="y"
+MD5="y"
+ARCH="n"
+J="5"
+
+#--------------------ArchLinux Settings--------------------#
+
+PYTHONPATH="/usr/bin"                                      # directory python is located
+NEWPYTHON="python.new"                                     # temp name for new python symlink
+ORIGPYTHON="python.orig"                                   # temp name for original python symlink
+
+#-----------------------Build Bot Code---------------------#
+
+USAGE="Example: ./buildbot -s -j 9 --toro --pga -c - syncs the repositories, cleans toro, builds toro and phone gapps using -j9
+Example: ./buildbot -s -j 9 --allroms --pga --clobber - same as above but builds all roms instead of just toro and runs clobber
+
+Gapp options
+--allga      for building all available gapps
+--pga        for phone gapps
+--tga        for tablet gapps
+
+Rom options
+--allroms    for building all available roms
+--toro       for building toro
+--maguro     for building maguro
+--toroplus   for building toroplus
+--grouper    for building grouper
+--mako       for building mako
+--manta      for building manta
+
+Each of these flags acts as a switch that will change the associated variable from a \"y\" to a \"n\" and vise versa.  
+It changes it based on the default value set in this script
+
+-r           toggles whether or not to build roms
+-g           toggles whether or not to build gapps
+-s           toggles whether or not to run repo sync
+-c           toffles whether or not to run make clean
+-m           toggles whether or not to move the roms and gapps to a specified directory after building
+-5           toggles whether or not an MD5sum should be generated for both roms and gapps
+-a           toggles whether or not the fixes to build on Arch Linux should be applied
+-j           allows you to specify the number to be used in the make command
+--clobber    will run make clobber before doing anything" 
+
+OPTFLAGS=":-:rgscm5aj:"
+
+while getopts "$OPTFLAGS" OPTIONS; 
+do
+	case $OPTIONS in
+		- )		case "${OPTARG}" in
+					clobber )	CLOBBER="y"
+								CLEAN="n"
+								;;
+					pga )		BPJBGA="y"
+								BALLGA="n"
+								;;
+					tga )		BTJBGA="y"
+								BALLGA="n"
+								;;
+					toro )		BTORO="y"
+								BALLROMS="n"
+								;;
+					maguro )	BMAGURO="y"
+								BALLROMS="n"
+								;;
+					toroplus )	BTOROPLUS="y"
+								BALLROMS="n"
+								;;
+					grouper )	BGROUPER="y"
+								BALLROMS="n"
+								;;
+					mako )		BMAKO="y"
+								BALLROMS="n"
+								;;
+					manta )		BMANTA="y"
+								BALLROMS="n"
+								;;
+					allroms )	BTORO="n"
+								BMAGURO="n"
+								BTOROPLUS="n"
+								BGROUPER="n"
+								BMAKO="n"
+								BMANTA="n"
+								BALLROMS="y"
+								;;
+					allga )		BPJBGA="n"
+								BTJBGA="n"
+								BALLGA="y"
+								;;
+				esac
+				;;
+		r ) 	if [ $BUILDROMS = "y" ]; then 
+					BUILDROMS="n" 
+				else 
+					BUILDROMS="y" 
+				fi
+				;;
+		g ) 	if [ $BUILDGAPPS = "y" ]; then 
+					BUILDGAPPS="n" 
+				else 
+					BUILDGAPPS="y" 
+				fi
+				;;
+		s ) 	if [ $SYNC = "y" ]; then 
+					SYNC="n" 
+				else 
+					SYNC="y" 
+				fi
+				;;
+		c ) 	if [ $CLEAN = "y" ]; then 
+					CLEAN="n" 
+				else 
+					CLEAN="y" 
+				fi
+				;;
+		m ) 	if [ $MOVE = "y" ]; then 
+					MOVE="n" 
+				else 
+					MOVE="y" 
+				fi
+				;;
+		5 ) 	if [ $MD5 = "y" ]; then 
+					MD5="n" 
+				else 
+					MD5="y" 
+				fi
+				;;
+		a ) 	if [ $ARCH = "y" ]; then 
+					ARCH="n" 
+				else 
+					ARCH="y" 
+				fi
+				;;
+		j ) 	J=$OPTARG
+				;;
+
+		h ) 	echo "$USAGE"
+				;;
+		\? ) 	echo "$USAGE"
+				exit 1
+				;;
+		* ) 	echo "$USAGE"
+				exit 1
+				;;
+	esac
+done
+
+if [ $BPJBGA = "y" ] || [ $BALLGA = "y" ]; then
+	GABRNCH[0]="jb"
+fi
+
+if [ $BTJBGA = "y" ] || [ $BALLGA = "y" ]; then
+	GABRNCH[1]="jb-tablet"
+fi
+
+if [ $BTORO = "y" ] || [ $BALLROMS = "y" ]; then
+	PRODUCT[0]="toro"                                         
+	LNCHCMD[0]="bamf_nexus-userdebug"                         
+	BUILDNM[0]="bamf_nexus"                                   
+	OUTPTNM[0]="bamf_nexus-toro"
+fi           
+
+if [ $BMAGURO = "y" ] || [ $BALLROMS = "y" ]; then
+	PRODUCT[1]="maguro"
+	LNCHCMD[1]="bamf_maguronexus-userdebug"
+	BUILDNM[1]="bamf_maguronexus"
+	OUTPTNM[1]="bamf_nexus-maguro"
+fi
+
+if [ $BTOROPLUS = "y" ] || [ $BALLROMS = "y" ]; then
+	PRODUCT[2]="toroplus"
+	LNCHCMD[2]="bamf_toroplus-userdebug"
+	BUILDNM[2]="bamf_toroplus"
+	OUTPTNM[2]="bamf_nexus-toroplus"
+fi
+
+if [ $BGROUPER = "y" ] || [ $BALLROMS = "y" ]; then
+	PRODUCT[3]="grouper"
+	LNCHCMD[3]="bamf_grouper-userdebug"
+	BUILDNM[3]="bamf_grouper"
+	OUTPTNM[3]="bamf_nexus-grouper"
+fi
+
+if [ $BMAKO = "y" ] || [ $BALLROMS = "y" ]; then
+	PRODUCT[4]="mako"
+	LNCHCMD[4]="bamf_mako-userdebug"
+	BUILDNM[4]="bamf_mako"
+	OUTPTNM[4]="bamf_nexus-mako"
+fi
+
+if [ $BMANTA = "y" ] || [ $BALLROMS = "y" ]; then
+	PRODUCT[5]="manta"
+	LNCHCMD[5]="bamf_manta-userdebug"
+	BUILDNM[5]="bamf_manta"
+	OUTPTNM[5]="bamf_nexus-manta"
+fi
+
+if [ $ARCH = "y" ]; then
+        CHECKPYTHON=$(ls -l "$PYTHONPATH/python" | cut -d ">" -f2)
+
+        if [ $CHECKPYTHON == "python3" ]; then
+                if [ ! -f "$PYTHONPATH/$NEWPYTHON" ]; then
+
+                        echo -n "Creating new symlink to be used..."
+
+                        sudo ln -s "$PYTHONPATH/python2" "$PYTHONPATH/$NEWPYTHON"
+
+                        echo "Done!"
+                fi
+
+                echo -n "Changing the symlink for python..."
+
+                sudo mv "$PYTHONPATH/python" "$PYTHONPATH/$ORIGPYTHON"
+
+                sudo mv "$PYTHONPATH/$NEWPYTHON" "$PYTHONPATH/python"
+
+                echo "Done!"
+
+        elif [ $CHECKPYTHON == "$PYTHONPATH/python2" ]; then
+                echo "Python is a symlink for python2 already!"
+        else
+                echo "Error: python2 nor python3 is symlnk for python!"
+        fi
+
+        echo -n "Set Sun Java6..."
+        source /opt/sun-java6/envsetup.sh
+        echo "Done!"
+fi
+
+echo -n "Moving to source directory..."
+cd $SAUCE
+echo "done!"
+
+if [ $CLOBBER = "y" ]; then
+	echo "Running make clobber..."
+	make clobber
+	echo "done!"
+fi
+
+if [ $SYNC = "y" ]; then
+	echo "Running repo sync..."
+	repo sync
+	echo "done!"
+fi
+
+if [ $BUILDGAPPS = "y" ]; then
+
+	echo -n "Changing to Gapps source..."
+	cd $GASAUCE
+	echo "done!"
+
+	for VAL in "${!GABRNCH[@]}"
+	do
+		echo "Switching branches..."
+		git checkout ${GABRNCH[$VAL]}
+		echo "done!"
+
+		echo "Compressing the gapps..."
+		zip -9 -r "bamf_gapps_${GABRNCH[$VAL]}_$GAPPSDATE" . -x ".*" "bamf_gapps_*" "buildgapps"
+		echo "done!"
+
+		if [ $MD5 = "y" ]; then
+			echo -n "Generating MD5..."
+			md5sum "$GASAUCE/bamf_gapps_${GABRNCH[$VAL]}_$GAPPSDATE.zip" | sed "s|$GASAUCE/||g" > "$GASAUCE/bamf_gapps_${GABRNCH[$VAL]}_$GAPPSDATE.md5sum.txt"
+			echo "done!"
+		fi
+
+		if [ $MOVE = "y" ]; then
+			for STOR in "${!GSTORAGE[@]}"
+			do
+				echo -n "Moving to storage directory..."
+				cp "$GASAUCE/bamf_gapps_${GABRNCH[$VAL]}_$GAPPSDATE.zip" "${GSTORAGE[$STOR]}/bamf_gapps_${GABRNCH[$VAL]}_$GAPPSDATE.zip"
+				if [ $MD5 = "y" ]; then
+					cp "$GASAUCE/bamf_gapps_${GABRNCH[$VAL]}_$GAPPSDATE.md5sum.txt" "${GSTORAGE[$STOR]}/bamf_gapps_${GABRNCH[$VAL]}_$GAPPSDATE.md5sum.txt"
+				fi
+				echo "done!"
+			done
+		fi	
+	done
+
+	echo -n "Moving to source directory..."
+	cd $SAUCE
+	echo "done!"
+fi
+
+if [ $BUILDROMS = "y" ]; then
+
+	for VAL in "${!PRODUCT[@]}"
+	do
+        
+		echo "Setting up environment..."
+		source build/envsetup.sh && lunch ${LNCHCMD[$VAL]} && [ $CLEAN = "y" ] && make clean
+        echo "done!"
+        echo "Starting build...!"
+        time make -j$J otapackage
+		echo "done!"
+
+		if [ $MD5 = "y" ]; then
+			echo -n "Generating MD5..."
+			md5sum "$SAUCE/out/target/product/${PRODUCT[$VAL]}/${BUILDNM[$VAL]}-ota-"`date +"%m-%d"`".zip" | sed "s|$SAUCE/out/target/product/${PRODUCT[$VAL]}/||g" > "$SAUCE/out/target/product/${PRODUCT[$VAL]}/${BUILDNM[$VAL]}-ota-"`date +"%m-%d"`".md5sum.txt"
+			echo "done!"
+		fi
+
+		if  [ $MOVE = "y" ]; then
+		
+			for STOR in "${!RSTORAG[@]}"
+			do
+				echo -n "Moving to storage directory..."
+				cp "$SAUCE/out/target/product/${PRODUCT[$VAL]}/${BUILDNM[$VAL]}-ota-"`date +"%m-%d"`".zip" "${RSTORAG[$STOR]}/${OUTPTNM[$VAL]}-$VERSION.zip"
+				if [ $MD5 = "y" ]; then
+					sed "s|${BUILDNM[$VAL]}-ota-"`date +"%m-%d"`"|${OUTPTNM[$VAL]}-$VERSION|g" "$SAUCE/out/target/product/${PRODUCT[$VAL]}/${BUILDNM[$VAL]}-ota-"`date +"%m-%d"`".md5sum.txt" > "${RSTORAG[$STOR]}/${OUTPTNM[$VAL]}-$VERSION.md5sum.txt"
+				fi
+				echo "done!"
+			done
+		fi
+	done
+
+fi
+
+if [ $ARCH = "y" ]; then
+        CHECKPYTHON=$(ls -l "$PYTHONPATH/python" | cut -d ">" -f2)
+
+        if [ $CHECKPYTHON == "$PYTHONPATH/python2" ]; then
+
+                echo -n "Changing the symlink for python..."
+
+                sudo mv "$PYTHONPATH/python" "$PYTHONPATH/$NEWPYTHON"
+
+                sudo mv "$PYTHONPATH/$ORIGPYTHON" "$PYTHONPATH/python"
+
+                echo "Done!"
+
+        elif [ $CHECKPYTHON == "python3" ]; then
+                echo "Python is a symlink for python3 already!"
+        else
+                echo "Error: python2 nor python3 is symlnk for python!"
+        fi
+
+        echo -n "Set Java back..."
+        source /etc/profile
+        echo "Done!"
+fi
+
+echo "All done!"
